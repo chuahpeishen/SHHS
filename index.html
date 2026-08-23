@@ -352,6 +352,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
 const quizData = new Array(10); 
 const tr = {"correct":"正确！","incorrect":"错误","next":"下一题 →","seeResults":"查看成绩","complete":"测验完成！","scoreText":"你答对了 {correct} 题，总共 {total} 题","tryAgain":"再试一次","rightAnswer":"正确答案","notQuite":"不完全正确"};
 let currentQ = 0, correctCount = 0, answered = false, userName = "";
+// Google Sheets Web App URL
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyXug3jcM1XSZ_Z8-t2stxwv91B3F2-r0MrLuKZZ2T8SJDB6s8csAZRoAUPLPDAvugJGg/exec";
+
+function saveResultToGoogleSheet(name, score, correct, total) {
+  const payload = { name, score, correct, total };
+  return fetch(GOOGLE_SHEET_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).catch(error => console.error('Failed to save result:', error));
+}
+
 
 function init() {
   document.querySelectorAll('.option').forEach(opt => opt.addEventListener('click', () => selectOption(opt)));
@@ -434,6 +447,9 @@ function showResults() {
   const pct = Math.round((correctCount / quizData.length) * 100);
   document.getElementById('score').textContent = pct + '%';
   document.getElementById('score-text').textContent = tr.scoreText.replace('{correct}', correctCount).replace('{total}', quizData.length);
+
+  // Automatically save this completed attempt to Google Sheets
+  saveResultToGoogleSheet(userName, pct, correctCount, quizData.length);
   document.querySelector('.progress-fill').style.width = '100%';
 
   // Generate code and reset button
