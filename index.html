@@ -335,6 +335,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
     <h2>测验完成！</h2>
     <div class="score" id="score">0%</div>
     <div class="score-text" id="score-text"></div>
+    <div id="save-status" style="margin: 8px 0 18px; font-size: 14px; color: #666;"></div>
     
     <!-- Code Box for Encoding -->
     <div class="code-container">
@@ -356,13 +357,27 @@ let currentQ = 0, correctCount = 0, answered = false, userName = "";
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyXug3jcM1XSZ_Z8-t2stxwv91B3F2-r0MrLuKZZ2T8SJDB6s8csAZRoAUPLPDAvugJGg/exec";
 
 function saveResultToGoogleSheet(name, score, correct, total) {
-  const payload = { name, score, correct, total };
+  const status = document.getElementById('save-status');
+  if (status) status.textContent = '正在保存成绩...';
+
+  const formData = new URLSearchParams();
+  formData.append('name', name);
+  formData.append('score', score);
+  formData.append('correct', correct);
+  formData.append('total', total);
+
   return fetch(GOOGLE_SHEET_URL, {
     method: 'POST',
     mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  }).catch(error => console.error('Failed to save result:', error));
+    body: formData
+  })
+  .then(() => {
+    if (status) status.textContent = '✓ 成绩已发送至教师记录';
+  })
+  .catch(error => {
+    console.error('Failed to save result:', error);
+    if (status) status.textContent = '⚠ 成绩发送失败，请通知老师。';
+  });
 }
 
 
