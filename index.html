@@ -360,16 +360,20 @@ function saveResultToGoogleSheet(name, score, correct, total) {
   const status = document.getElementById('save-status');
   if (status) status.textContent = '正在保存成绩...';
 
-  const formData = new URLSearchParams();
-  formData.append('name', name);
-  formData.append('score', score);
-  formData.append('correct', correct);
-  formData.append('total', total);
+  const payload = {
+    name: name,
+    score: score,
+    correct: correct,
+    total: total
+  };
 
   return fetch(GOOGLE_SHEET_URL, {
     method: 'POST',
     mode: 'no-cors',
-    body: formData
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify(payload)
   })
   .then(() => {
     if (status) status.textContent = '✓ 成绩已发送至教师记录';
