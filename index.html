@@ -360,20 +360,28 @@ function saveResultToGoogleSheet(name, score, correct, total) {
   const status = document.getElementById('save-status');
   if (status) status.textContent = '正在保存成绩...';
 
-  const payload = {
-    name: name,
-    score: score,
-    correct: correct,
-    total: total
-  };
+  // Build standard URLSearchParams
+  const payload = new URLSearchParams();
+  payload.append('name', name);
+  payload.append('score', score);
+  payload.append('correct', correct);
+  payload.append('total', total);
 
-  return fetch(GOOGLE_SHEET_URL, {
+  // Method A: Try sendBeacon (Bypasses CORS/CORB completely for background logging)
+  if (navigator.sendBeacon) {
+    const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
+    const success = navigator.sendBeacon(GOOGLE_SHEET_URL, blob);
+    if (success) {
+      if (status) status.textContent = '✓ 成绩已发送至教师记录';
+      return;
+    }
+  }
+
+  // Method B: Fallback fetch without headers (avoids triggering CORS preflight)
+  fetch(GOOGLE_SHEET_URL, {
     method: 'POST',
     mode: 'no-cors',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify(payload)
+    body: payload
   })
   .then(() => {
     if (status) status.textContent = '✓ 成绩已发送至教师记录';
