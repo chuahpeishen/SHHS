@@ -60,14 +60,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
 .results .score-text { font-size: 18px; color: #666; margin-bottom: 20px; }
 .restart-btn { padding: 14px 40px; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
 
-/* Code Encoding Box Styles */
-.code-container { margin: 30px auto 20px; text-align: left; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
-.code-container p { font-size: 14px; color: #475569; margin-bottom: 10px; font-weight: 600; }
-.copy-box { display: flex; gap: 10px; }
-.copy-box input { flex-grow: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 14px; background: #fff; color: #334155; }
-.copy-box button { padding: 10px 24px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background 0.2s; white-space: nowrap; }
-.copy-box button:hover { background: #4338ca; }
-
+/* Leaderboard Styles */
+.leaderboard-box { margin-top: 25px; text-align: left; }
+.leaderboard-table { width: 100%; border-collapse: collapse; background: #f8fafc; border-radius: 8px; overflow: hidden; font-size: 14px; margin-top: 10px; }
+.leaderboard-table th { padding: 10px; text-align: left; background: #e2e8f0; color: #475569; }
+.leaderboard-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
 </style>
 </head>
 <body>
@@ -337,22 +334,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
     <div class="score-text" id="score-text"></div>
     <div id="save-status" style="margin: 8px 0 18px; font-size: 14px; color: #666;"></div>
     
-    <!-- Code Box for Encoding -->
-    <div class="code-container">
-      <p>保存或分享您的专属成绩码：</p>
-      <div class="copy-box">
-        <input type="text" id="encoded-code" readonly>
-        <button onclick="copyCode()" id="copy-btn">复制</button>
-      </div>
+    <!-- Leaderboard Container -->
+    <div class="leaderboard-box">
+      <h3 style="font-size: 18px; margin-bottom: 12px; color: #333; text-align: center;">🏆 排行榜 Top 10</h3>
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th style="width: 15%; text-align: center;">排名</th>
+            <th style="width: 60%;">姓名</th>
+            <th style="width: 25%; text-align: right;">得分</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr>
+            <td colspan="3" style="padding: 15px; text-align: center; color: #94a3b8;">加载排行榜中...</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    
-    <button class="restart-btn" onclick="restart()" style="margin-top: 20px;">再试一次</button>
+
+    <button class="restart-btn" onclick="restart()" style="margin-top: 25px;">再试一次</button>
   </div>
 </div>
+
 <script>
 const quizData = new Array(10); 
 const tr = {"correct":"正确！","incorrect":"错误","next":"下一题 →","seeResults":"查看成绩","complete":"测验完成！","scoreText":"你答对了 {correct} 题，总共 {total} 题","tryAgain":"再试一次","rightAnswer":"正确答案","notQuite":"不完全正确"};
 let currentQ = 0, correctCount = 0, answered = false, userName = "";
+
 // Google Sheets Web App URL
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyXug3jcM1XSZ_Z8-t2stxwv91B3F2-r0MrLuKZZ2T8SJDB6s8csAZRoAUPLPDAvugJGg/exec";
 
@@ -360,14 +369,12 @@ function saveResultToGoogleSheet(name, score, correct, total) {
   const status = document.getElementById('save-status');
   if (status) status.textContent = '正在保存成绩...';
 
-  // Build standard URLSearchParams
   const payload = new URLSearchParams();
   payload.append('name', name);
   payload.append('score', score);
   payload.append('correct', correct);
   payload.append('total', total);
 
-  // Method A: Try sendBeacon (Bypasses CORS/CORB completely for background logging)
   if (navigator.sendBeacon) {
     const blob = new Blob([payload.toString()], { type: 'application/x-www-form-urlencoded' });
     const success = navigator.sendBeacon(GOOGLE_SHEET_URL, blob);
@@ -377,7 +384,6 @@ function saveResultToGoogleSheet(name, score, correct, total) {
     }
   }
 
-  // Method B: Fallback fetch without headers (avoids triggering CORS preflight)
   fetch(GOOGLE_SHEET_URL, {
     method: 'POST',
     mode: 'no-cors',
@@ -392,6 +398,45 @@ function saveResultToGoogleSheet(name, score, correct, total) {
   });
 }
 
+function fetchLeaderboard() {
+  const tbody = document.getElementById('leaderboard-body');
+  
+  fetch(GOOGLE_SHEET_URL)
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success' && data.leaderboard) {
+        if (data.leaderboard.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="padding: 15px; text-align: center;">暂无榜单数据</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.leaderboard.map((item, index) => {
+          let rankMedal = index + 1;
+          if (index === 0) rankMedal = '🥇';
+          if (index === 1) rankMedal = '🥈';
+          if (index === 2) rankMedal = '🥉';
+
+          return `
+            <tr>
+              <td style="text-align: center;">${rankMedal}</td>
+              <td style="font-weight: 500;">${escapeHtml(item.name)}</td>
+              <td style="text-align: right; font-weight: bold; color: #4f46e5;">${item.score}%</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    })
+    .catch(err => {
+      console.error('Leaderboard fetch error:', err);
+      tbody.innerHTML = '<tr><td colspan="3" style="padding: 15px; text-align: center; color: #ef4444;">无法加载排行榜</td></tr>';
+    });
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, function(m) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+  });
+}
 
 function init() {
   document.querySelectorAll('.option').forEach(opt => opt.addEventListener('click', () => selectOption(opt)));
@@ -459,11 +504,6 @@ function updateProgress() {
   document.querySelector('.progress-fill').style.width = (currentQ / quizData.length * 100) + '%';
 }
 
-function encodeResults(name, correct, total) {
-  const resultData = { n: name, c: correct, t: total };
-  return btoa(encodeURIComponent(JSON.stringify(resultData)));
-}
-
 function showResults() {
   document.getElementById('quiz-header').classList.remove('active');
   document.getElementById('quiz-container').classList.remove('active');
@@ -475,25 +515,11 @@ function showResults() {
   document.getElementById('score').textContent = pct + '%';
   document.getElementById('score-text').textContent = tr.scoreText.replace('{correct}', correctCount).replace('{total}', quizData.length);
 
-  // Automatically save this completed attempt to Google Sheets
+  // Automatically save results and update leaderboard
   saveResultToGoogleSheet(userName, pct, correctCount, quizData.length);
+  setTimeout(fetchLeaderboard, 1200);
+
   document.querySelector('.progress-fill').style.width = '100%';
-
-  // Generate code and reset button
-  const encodedCode = encodeResults(userName, correctCount, quizData.length);
-  document.getElementById('encoded-code').value = encodedCode;
-  document.getElementById('copy-btn').textContent = "复制";
-}
-
-function copyCode() {
-  const codeInput = document.getElementById('encoded-code');
-  codeInput.select();
-  codeInput.setSelectionRange(0, 99999); // Mobile compatibility
-  navigator.clipboard.writeText(codeInput.value).then(() => {
-    document.getElementById('copy-btn').textContent = "已复制!";
-  }).catch(err => {
-    console.error('Copy failed: ', err);
-  });
 }
 
 function restart() {
